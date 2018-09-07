@@ -23,8 +23,8 @@ const(
 	GS
 	SF
 	IoT
-	//numberOfLoBs
 
+	//numberOfLoBs
 )
 
 const(
@@ -39,10 +39,12 @@ const(
 	Done
 )
 
+
 type Participant struct {
 	UserID		string 		`json:"Participant_UserID"`
 	UserName    string 		`json:"Participant_UserName"`
 	Password    string  	`json:"Participant_Password"`
+	
 	IsAdmin     bool 		`json:"Participant_IsAdmin"`
 	LoB			int     	`json:"Participant_LoB"`
 }
@@ -50,16 +52,20 @@ type Participant struct {
 type Credit struct {
 	UserID		string  	`json:"Credit_UserID"`
 	Value       int     	`json:"Credit_Value"`
+	
 	TicketIDs   []string 	`json:"Credit_TicketIDs"`
 }
 
 type Ticket struct {
 	TicketID	string 		`json:"Ticket_TicketID"`
 	Status		int 		`json:"Ticket_Status"`
+
 	Title		string 		`json:"Ticket_Title"`
 	Type        int 		`json:"Ticket_Type"`
+
 	Value		int 		`json:"Ticket_Value"`
 	Owner		Participant `json:"Ticket_Owner"`
+
 	DeadLine	time.Time 	`json:"Ticket_Deadline"`
 	Comment		string     	`json:"Ticket_Comment"`
 	Policy		string 		`json:"Ticket_Policy"`
@@ -94,7 +100,8 @@ func (rdg *SmartContract) Init(stub shim.ChaincodeStubInterface) peer.Response {
 //Invoke - The chaincode Invoke function:
 func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response {
 	function, args := stub.GetFunctionAndParameters()
-	logger.Info("function: ", function)
+	logger.Info(" ****** Invoke: function: ", function)
+
 	switch function{
 	case "addParticipant":
 		return rdg.addParticipant(stub, args)
@@ -104,11 +111,15 @@ func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response
 		return rdg.updateParticipant(stub, args)
 	case "deleteParticipant":
 		return rdg.deleteParticipant(stub, args[0])
-
+	
 	case "CreditCreate":
 		return rdg.CreditCreate(stub, args)
 	case "CreditRead":
 		return rdg.CreditRead(stub, args[0])
+	case "CreditUpdate":
+		return rdg.CreditUpdate(stub, args)
+	case "CreditDelete":
+		return rdg.CreditDelete(stub, args[0])
 
 	default:
 		logger.Error("Received unknown function invocation: ", function)
@@ -118,6 +129,7 @@ func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response
 
 //getReadingFromArgs - construct a reading structure from string array of arguments
 func getParticipantFromArgs(args []string) (participant Participant, err error) {
+
 	if  strings.Contains(args[0], "\"Participant_UserName\"") == false ||
 		strings.Contains(args[0], "\"Participant_UserID\"")   == false ||
 		strings.Contains(args[0], "\"Participant_Password\"") == false ||
@@ -190,6 +202,7 @@ func (rdg *SmartContract) updateReadingIDIndex(stub shim.ChaincodeStubInterface,
 	return true, nil
 }
 
+
 //Query Route: readReading
 func (rdg *SmartContract) readParticipant(stub shim.ChaincodeStubInterface, participantID string) peer.Response {
 	participantAsByteArray, err := rdg.retrieveParticipant(stub, participantID)
@@ -204,13 +217,11 @@ func (rdg *SmartContract) retrieveParticipant(stub shim.ChaincodeStubInterface, 
 	var participant Participant
 	var participantAsByteArray []byte
 	bytes, err := stub.GetState(participantID)
-	logger.Info("-----retrieveParticipant 1----", bytes)
-	logger.Info("-----retrieveParticipant 2----", err)
+
 	if err != nil {
 		return participantAsByteArray, errors.New("retrieveParticipant: Error retrieving participant with ID: " + participantID)
 	}
 	err = json.Unmarshal(bytes, &participant)
-	logger.Info("-----retrieveParticipant 3----", participant)
 	if err != nil {
 		return participantAsByteArray, errors.New("retrieveParticipant: Corrupt reading record " + string(bytes))
 	}
@@ -220,6 +231,7 @@ func (rdg *SmartContract) retrieveParticipant(stub shim.ChaincodeStubInterface, 
 	}
 	return participantAsByteArray, nil
 }
+
 
 //Helper: Reading readingStruct //change template
 func (rdg *SmartContract) deleteParticipant(stub shim.ChaincodeStubInterface, participantID string) peer.Response {
@@ -279,12 +291,14 @@ func deleteKeyFromStringArray(array []string, key string) (newArray []string, er
 
 //Invoke Route: updateParticipant
 func (rdg *SmartContract) updateParticipant(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+
 	var currParticipant Participant
 	newParticipant, err := getParticipantFromArgs(args)
 	participantAsByteArray, err := rdg.retrieveParticipant(stub, newParticipant.UserID)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	err = json.Unmarshal(participantAsByteArray, &currParticipant)
 	if err != nil {
 		return shim.Error("updateReading: Error unmarshalling readingStruct array JSON")
@@ -297,85 +311,168 @@ func (rdg *SmartContract) updateParticipant(stub shim.ChaincodeStubInterface, ar
 	return shim.Success(nil)
 }
 
-func  (rdg *SmartContract) CreditCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
-	//to do
-	//Check whether the participant exsited before.
-	record, err := stub.GetState(args[0])
+func (rdg *SmartContract) CreditCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+
+	// ==== Check whether the participant already exsites. ====
+	record, err := stub.GetState("Credit_UerID_"+args[0])
 
 	if record != nil {
 		return shim.Error("This participant's:%s credit has already existed." + args[0])
 	}
 
+	userID := args[0]
 	value, err := strconv.Atoi(args[1])
-	credit := Credit{UserID:args[0], Value:value}
 
-	bytes, err := json.Marshal(credit)
+	err = CreditInit(stub, userID, value)
 	if err != nil {
-		return shim.Error(errors.New("CreditCreate: Error marshalling new credit").Error())
-	}
-
-	err = stub.PutState(credit.UserID, bytes)
-
-	if err != nil {
-		return shim.Error(errors.New("CreditCreate").Error())
+		return shim.Error(err.Error())
 	}
 
 	return shim.Success(nil)
 }
 
+func CreditInit(stub shim.ChaincodeStubInterface, userID string, value int) error{
+	var credit Credit
 
-func  (rdg *SmartContract) CreditRead(stub shim.ChaincodeStubInterface, participantID string) peer.Response {
-	creditAsBytes, err := stub.GetState(participantID)
+	// ==== Create Credit object and Credit to JSON ====
+	credit = Credit{UserID: userID, Value: value}
+
+	creditAsByteArray, err := json.Marshal(credit)
 	if err != nil {
-		logger.Error("CreditRead:  Corrupt reading record ", err.Error())
-		return shim.Error(errors.New("CreditRead: Fail to get state for " + participantID).Error())
-	}  
+		return errors.New(err.Error())
+	}
+
+	// ==== Save Credit to state ====
+	err = stub.PutState("Credit_UerID_"+userID, creditAsByteArray)
+	if err != nil {
+		return errors.New(err.Error())
+	}
+
+	return nil
+}
+
+func (rdg *SmartContract) CreditRead(stub shim.ChaincodeStubInterface, UserID string) peer.Response {
+	//to do
+	creditAsByteArray, err := retrieveSingleCredit(stub, "Credit_UerID_"+UserID)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	return shim.Success(creditAsByteArray)
+}
+
+func retrieveSingleCredit(stub shim.ChaincodeStubInterface, creditID string) ([]byte, error){
+	var credit Credit
+	var creditAsByteArray []byte
+	var err error
+
+	creditAsByteArray, err = stub.GetState(creditID)
+
+	if err != nil {
+		return nil, errors.New("CreditRead: Error credit read participant with ID: " + creditID)
+	}
 	// else if creditAsBytes == nil {
-	// 	logger.Error("CreditRead:  Corrupt reading record ", err.Error())
-	// 	return shim.Error(errors.New("CreditRead: Credit does not exist " + participantID).Error())
-	// }
+    //  logger.Error("CreditRead:  Corrupt reading record ", err.Error())
+    //  return nil, errors.New("CreditRead: Credit does not exist " + creditID)
+    // }
 
 	// For log printing credit Information & check whether the credit does exist
-	var credit Credit
-	err = json.Unmarshal(creditAsBytes, &credit)
+	err = json.Unmarshal(creditAsByteArray, &credit)
 	if err != nil {
-		logger.Error("CreditRead:  Corrupt reading record ", creditAsBytes)
-		return shim.Error(errors.New("CreditRead: Credit does not exist " + string(creditAsBytes)).Error())
+		return nil, errors.New("CreditRead: Credit does not exist "  + string(creditAsByteArray))
 	}
-	logger.Info("----CreditRead---", credit)
 	// For log printing credit Information
 
-	return shim.Success(creditAsBytes)
+	return creditAsByteArray, nil
 }
 
-func  (rdg *SmartContract) CreditUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
-	//to do
+
+func (rdg *SmartContract) CreditUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	var credit Credit
+	// ==== Check whether the number of args is 3 ====
+	if len(args) != 3 {
+		return shim.Error("CreditUpdate: Incorrect number of arguments, Expecting 3")
+	}
+
+	// ==== Assign value to variable ====
+	userID := args[0]
+	value, err := strconv.Atoi(args[1])
+	if err != nil {
+		return shim.Error("CreditUpdate: Incorrect value :" + args[1])
+	}
+	ticketID := args[2]
+	
+	// === Check whether the credit already exist. ====
+	creditAsByteArray, err := stub.GetState("Credit_UerID_"+userID)
+	if err != nil {
+		return shim.Error("CreditUpdate: Failed to get credit :" + err.Error())
+	} else if creditAsByteArray == nil {
+		errs := fmt.Sprintf("CreditUpdate: Credit_UerID_%s does not exist.", userID)
+		logger.Info(" ****** " + errs)
+		return shim.Error(errs)
+	}
+
+	err = json.Unmarshal(creditAsByteArray, &credit)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	// === check whether the ticket has been add ===
+	if ok := Is_Inarray(credit.TicketIDs, ticketID); ok {
+		return shim.Error("CreditUpdate: This ticket has been existed.")
+	}
+
+	credit.Value += value
+	credit.TicketIDs = append(credit.TicketIDs, ticketID)
+
+	creditAsByteArray, err = json.Marshal(credit)
+	if err != nil {
+		return shim.Error("CreditUpdate Error" + err.Error())
+	}
+
+	err = stub.PutState("Credit_UerID_"+credit.UserID, creditAsByteArray)
+	return shim.Success(creditAsByteArray)
+}
+
+func Is_Inarray(target []string, now string) bool {
+	for _, entry := range target {
+		if entry == now {
+			return true
+		}
+	}
+	return false
+}
+
+// !!! Error: DelState does not work, the credit can not be deleted.
+func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID string) peer.Response {
+	logger.Info(" ****** CreditDelete start ****** userID:" + userID)
+	err := stub.DelState("Credit_UerID_"+userID)
+	if err!= nil {
+		return shim.Error("CreditDelete: Failed to delete Credit state: " + err.Error())
+	}
+	
+	//Log process for debug
+	credit, err := stub.GetState("Credit_UerID_"+userID)
+	logger.Info(" ****** CreditDelete ****** " + string(credit))
+
 	return shim.Success(nil)
-
 }
 
-func  (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, ticketID string) peer.Response {
-	//to do
-	return shim.Success(nil)
-
-}
-
-// func TicketAdd(stub shim.ChaincodeStubInterface, args []string){
+// func TicketAdd(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 // 	//to do
 // 	return shim.Success(nil)
 // }
 
-// func TicketDelete(stub shim.ChaincodeStubInterface, ticketID string){
+// func TicketDelete(stub shim.ChaincodeStubInterface, ticketID string) peer.Response {
 // 	//to do
 // 	return shim.Success(nil)
 // }
 
-// func TicketUpdate(stub shim.ChaincodeStubInterface, args []string){
+// func TicketUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 // 	//to do
 // 	return shim.Success(nil)
 // }
 
-// func TicketQuery(stub shim.ChaincodeStubInterface, args []string){
+// func TicketQuery(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 // 	//to do 
 // 	return shim.Success(nil)
 // }
