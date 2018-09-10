@@ -64,7 +64,7 @@ type Ticket struct {
 	Type        int 		`json:"Ticket_Type"`
 
 	Value		int 		`json:"Ticket_Value"`
-	Owner		Participant `json:"Ticket_Owner"`
+	UserID		string		`json:"Ticket_UserID`
 
 	DeadLine	time.Time 	`json:"Ticket_Deadline"`
 	Comment		string     	`json:"Ticket_Comment"`
@@ -121,6 +121,15 @@ func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response
 	case "CreditDelete":
 		return rdg.CreditDelete(stub, args[0])
 
+	case "TicketCreate":
+		return rdg.TicketCreate(stub, args)
+	case "TicketRead":
+		return rdg.TicketRead(stub, args)
+	case "TicketUpdate":
+		return rdg.TicketUpdate(stub, args)
+	case "TicketDelete":
+		return rdg.TicketDelete(stub, args[0])
+		
 	default:
 		logger.Error("Received unknown function invocation: ", function)
 	}
@@ -426,7 +435,7 @@ func (rdg *SmartContract) CreditUpdate(stub shim.ChaincodeStubInterface, args []
 
 	creditAsByteArray, err = json.Marshal(credit)
 	if err != nil {
-		return shim.Error("CreditUpdate Error" + err.Error())
+		return shim.Error("CreditUpdate: " + err.Error())
 	}
 
 	err = stub.PutState("Credit_UerID_"+credit.UserID, creditAsByteArray)
@@ -442,7 +451,7 @@ func Is_Inarray(target []string, now string) bool {
 	return false
 }
 
-// !!! Error: DelState does not work, the credit can not be deleted.
+
 func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID string) peer.Response {
 	logger.Info(" ****** CreditDelete start ****** userID:" + userID)
 	err := stub.DelState("Credit_UerID_"+userID)
@@ -457,22 +466,86 @@ func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID 
 	return shim.Success(nil)
 }
 
-// func TicketAdd(stub shim.ChaincodeStubInterface, args []string) peer.Response {
-// 	//to do
-// 	return shim.Success(nil)
-// }
 
-// func TicketDelete(stub shim.ChaincodeStubInterface, ticketID string) peer.Response {
-// 	//to do
-// 	return shim.Success(nil)
-// }
+func (sc *SmartContract)TicketCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	// ==== Get ticket from args ====
+	// todo 
+	ticket := Ticket{
+		TicketID: "ticket_1", 
+		Status: 0, 
+		Title: "The first Ticket",
+		Value: 30,
+		UserID: "1",
+		DeadLine: time.Now()}
+	// ==== Judge if the ticket already exists ====
+	// todo
+	
+	// ==== Put the ticket into ledger ====
+	ticketAsBytes, err := json.Marshal(ticket)
+	if err != nil {
+		return shim.Error("TicketCreate: " + err.Error())
+	}
+	stub.PutState(ticket.TicketID, ticketAsBytes)
+	return shim.Success(nil)
+}
 
-// func TicketUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
-// 	//to do
-// 	return shim.Success(nil)
-// }
 
-// func TicketQuery(stub shim.ChaincodeStubInterface, args []string) peer.Response {
-// 	//to do 
-// 	return shim.Success(nil)
-// }
+func (sc *SmartContract)TicketDelete(stub shim.ChaincodeStubInterface, ticketID string) peer.Response {
+	// ==== Judge if the ticket already exists ====
+	var ticket Ticket
+	ticketAsBytes, err := stub.GetState(ticketID)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	err = json.Unmarshal(ticketAsBytes, &ticket)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	logger.Info(" ****** TicketDelete:", ticket)
+
+	err = stub.DelState(ticketID)
+	return shim.Success(nil)
+}
+
+
+func (sc *SmartContract)TicketUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	// ==== Get ticket from args ====
+	// todo 
+	ticket := Ticket{
+		TicketID: "ticket_1", 
+		Status: 1, 
+		Title: "The first Ticket 1111",
+		Value: 20,
+		UserID: "111",
+		DeadLine: time.Now()}
+	// ==== Judge if the ticket already exists ====
+	// todo
+
+	// ==== Update the ledger ====
+
+	ticketAsBytes, err := json.Marshal(ticket)
+	if err != nil {
+		return shim.Error("TicketUpdate: " + err.Error())
+	}
+	stub.PutState(ticket.TicketID, ticketAsBytes)
+
+	return shim.Success(ticketAsBytes)
+}
+
+
+func (sc *SmartContract)TicketRead(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	// ==== Read ticket from ledger ==== 
+	var ticket Ticket
+	ticketAsBytes, err := stub.GetState(args[0])
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	err = json.Unmarshal(ticketAsBytes, &ticket)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	logger.Info(" ****** TicketDelete:", ticket)
+	return shim.Success(ticketAsBytes)
+}
