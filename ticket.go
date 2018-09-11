@@ -64,7 +64,7 @@ type Ticket struct {
 	Type        int 		`json:"Ticket_Type"`
 
 	Value		int 		`json:"Ticket_Value"`
-	UserID		string		`json:"Ticket_UserID`
+	UserID		string		`json:"Ticket_UserID"`
 
 	DeadLine	time.Time 	`json:"Ticket_Deadline"`
 	Comment		string     	`json:"Ticket_Comment"`
@@ -466,26 +466,63 @@ func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID 
 	return shim.Success(nil)
 }
 
+func getTicketFromArgs(args string)(ticket Ticket, err error) {
+	if strings.Contains(args, "\"Ticket_TicketID\"") == false	|| 
+	strings.Contains(args, "\"Ticket_Title\"") == false 			|| 
+	strings.Contains(args, "\"Ticket_Value\"") == false 			||
+	strings.Contains(args, "\"Ticket_UserID\"") == false 		||
+	strings.Contains(args, "\"Ticket_Title\"") == false			||
+	strings.Contains(args, "\"Ticket_Title\"") == false {
+		return ticket, errors.New("Unknown field: Input JSON does not comly to schema")
+	}
+	
+	err = json.Unmarshal([]byte(args), &ticket)
+	if err != nil {
+		return ticket, err
+	}
+
+	return ticket, nil
+}
+
+func saveTicket(stub shim.ChaincodeStubInterface, ticket Ticket)(bool, error) {
+	ticketAsBytes, err := json.Marshal(ticket)
+	if err != nil {
+		return false, errors.New("saveTicket: " + err.Error())
+	}
+	err = stub.PutState(ticket.TicketID, ticketAsBytes)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
 
 func (sc *SmartContract)TicketCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 	// ==== Get ticket from args ====
 	// todo 
-	ticket := Ticket{
-		TicketID: "ticket_1", 
-		Status: 0, 
-		Title: "The first Ticket",
-		Value: 30,
-		UserID: "1",
-		DeadLine: time.Now()}
-	// ==== Judge if the ticket already exists ====
-	// todo
+	// ticket := Ticket{
+	// 	TicketID: "ticket_1", 
+	// 	Status: 0, 
+	// 	Title: "The first Ticket",
+	// 	Value: 30,
+	// 	UserID: "1",
+	// 	DeadLine: time.Now()}
 	
-	// ==== Put the ticket into ledger ====
-	ticketAsBytes, err := json.Marshal(ticket)
+	ticket, err := getTicketFromArgs(args[0])
 	if err != nil {
 		return shim.Error("TicketCreate: " + err.Error())
 	}
-	stub.PutState(ticket.TicketID, ticketAsBytes)
+
+	// ==== Judge if the ticket already exists ====
+	record, err := stub.GetState(ticket.TicketID)
+	if record != nil {
+		return shim.Error("TicketCreate: The ticket already exists.")
+	}
+	
+	// ==== Put the ticket into ledger ====
+	_, err = saveTicket(stub, ticket)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
 	return shim.Success(nil)
 }
 
@@ -512,25 +549,39 @@ func (sc *SmartContract)TicketDelete(stub shim.ChaincodeStubInterface, ticketID 
 func (sc *SmartContract)TicketUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 	// ==== Get ticket from args ====
 	// todo 
-	ticket := Ticket{
-		TicketID: "ticket_1", 
-		Status: 1, 
-		Title: "The first Ticket 1111",
-		Value: 20,
-		UserID: "111",
-		DeadLine: time.Now()}
-	// ==== Judge if the ticket already exists ====
-	// todo
+	// ticket := Ticket{
+	// 	TicketID: "ticket_1", 
+	// 	Status: 1, 
+	// 	Title: "The first Ticket 1111",
+	// 	Value: 20,
+	// 	UserID: "111",
+	// 	DeadLine: time.Now()}
+	
+	if len(args) != 2 {
+		return shim.Error("TicketUpdate: The number of arguments is not equal to 2.")
+	}
 
-	// ==== Update the ledger ====
-
-	ticketAsBytes, err := json.Marshal(ticket)
+	participantID := args[0]
+	ticket, err := getTicketFromArgs(args[1])
 	if err != nil {
 		return shim.Error("TicketUpdate: " + err.Error())
 	}
-	stub.PutState(ticket.TicketID, ticketAsBytes)
+	// ==== Judge if the ticket already exists ====
+	record, err := stub.GetState(ticket.TicketID)
+	if record == nil {
+		return shim.Error("TicketCreate: The ticket does not exist.")
+	}
 
-	return shim.Success(ticketAsBytes)
+	if participantID != ticket.UserID {
+		return shim.Error("TicketUpdate: You have no rights to update the ticket")
+	}
+
+	// ==== Update the ledger ====
+	_, err = saveTicket(stub, ticket)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	return shim.Success(nil)
 }
 
 
