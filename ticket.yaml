@@ -1,0 +1,377 @@
+swagger: "2.0"
+
+info:
+  description: "The readingAsset chaincode can read/write vehicle odometer readings
+    onto the blockchain and can expose these functions as REST API.
+    THIS SAMPLE CODE MAY BE USED SOLELY AS PART OF THE TEST AND EVALUATION OF THE SAP CLOUD PLATFORM
+    BLOCKCHAIN SERVICE (THE “SERVICE”) AND IN ACCORDANCE WITH THE AGREEMENT FOR THE SERVICE.
+    THIS SAMPLE CODE PROVIDED “AS IS”, WITHOUT ANY WARRANTY, ESCROW, TRAINING, MAINTENANCE, OR
+    SERVICE OBLIGATIONS WHATSOEVER ON THE PART OF SAP."
+  version: "1.0"
+  title: "exchain"
+
+consumes:
+  - application/json
+
+tags:
+- name: "Participant"
+  description : "Participant api"
+- name: "Credit"
+- name: "Ticket"
+      
+schemes:
+- "http"
+- "https"
+paths:
+ 
+  /Participant:
+    # get:
+    #   operationId: readAllReadings
+    #   summary: Read all (existing) Odometer Readings
+    #   produces:
+    #   - application/json
+    #   responses:
+    #     200:
+    #       description: OK
+    #     500:
+    #       description: Failed
+
+    post:
+      tags: 
+      - "Participant"
+      operationId: addParticipant
+      summary: Adds a new Odometer Reading for a new participant
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: newReading
+        description: New Odometer Reading for new Vehicle
+        required: true
+        schema:
+          $ref: '#/definitions/Participant'
+      responses:
+        200:
+          description: Reading Written
+        500:
+          description: Failed
+ 
+    put:
+      tags: 
+      - "Participant"
+      operationId: updateParticipant
+      summary: Updates existing participant with a new Odometer participant
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: updateReading
+        description: New Odometer Reading for existing vehicle
+        required: true
+        schema:
+          $ref: '#/definitions/Participant'
+      responses:
+        200:
+          description: Reading Written
+        500:
+          description: Failed
+          
+  /Participant/{id}:
+    delete:
+      tags: 
+      - "Participant"
+      operationId: deleteParticipant
+      summary: Remove a (existing) Odometer Readings
+      parameters:
+      - $ref: '#/parameters/id'
+      produces:
+        - application/json
+      responses:
+        200:
+          description: OK
+        500:
+          description: Failed
+
+    get:
+      tags: 
+      - "Participant"
+      operationId: readParticipant
+      summary: Read (existing) Odometer Reading by Reading ID
+      parameters:
+      - $ref: '#/parameters/id'
+      produces:
+      - application/json
+      responses:
+        200:
+          description: OK
+        500:
+          description: Failed
+          
+  /Credit:
+    post:
+      tags: 
+      - "Credit"
+      operationId: CreditCreate
+      summary: Create a Credit
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        description: New Credit
+        required: true
+        schema:
+          $ref: '#/definitions/Credit'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+    put:
+      tags:
+      - "Credit"
+      operationId: CreditUpdate
+      summary: Update Credit
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        description: New Credit
+        required: true
+        schema:
+          $ref: '#/definitions/Credit'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+    get:
+      tags:
+      - "Credit"
+      operationId: CreditRead
+      summary: Read Credit
+      parameters:
+      - $ref: '#/parameters/userid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+    delete:
+      tags:
+      - "Credit"
+      operationId: CreditDelete
+      summary: Read Credit
+      parameters:
+      - $ref: '#/parameters/userid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+  /Ticket:
+    post:
+      tags: 
+      - "Ticket"
+      operationId: TicketCreate
+      summary: Create a Ticket
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        description: New Ticket
+        required: true
+        schema:
+          $ref: '#/definitions/Ticket'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+    put:
+      tags:
+      - "Ticket"
+      operationId: TicketUpdate
+      summary: Update Ticket
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        description: New Ticket
+        required: true
+        schema:
+          $ref: '#/definitions/Ticket'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+
+    get:
+      tags:
+      - "Ticket"
+      operationId: TicketRead
+      summary: Read Ticket
+      parameters:
+      - $ref: '#/parameters/id'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+    delete:
+      tags:
+      - "Ticket"
+      operationId: TicketDelete
+      summary: Read Ticket
+      parameters:
+      - $ref: '#/parameters/id'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+  /Ticket/{userid}:
+    post:
+      tags:
+        - "Ticket"
+      operationId: TicketApply
+      summary: User apply ticket
+      parameters:
+      - $ref: '#/parameters/ticketid'
+      - $ref: '#/parameters/userid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    
+    get:
+      tags:
+        - "Ticket"
+      operationId: TicketApplyRead
+      summary: User apply ticket
+      parameters:
+      - $ref: '#/parameters/ticketid'
+      - $ref: '#/parameters/userid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+
+
+parameters:
+  id:
+    name: id
+    in: path
+    description: ID of the Odometer Reading
+    required: true
+    type: string
+    maxLength: 64
+  
+  userid:
+    name: userid
+    in: path
+    description: ID of the User
+    required: true
+    type: string
+
+  ticketid:
+    name: ticketid
+    in: path
+    description: ID of the Ticket
+    required: true
+    type: string
+
+definitions:
+  Participant:
+    type: object
+    properties:
+      Participant_UserID:
+        type: string
+      Participant_UserName:
+        type: string
+      Participant_Password:
+        type: string
+      Participant_IsAdmin:
+        type: boolean
+      Participant_LoB:
+        type: integer
+  
+  Credit:
+    type: object
+    properties:
+      Credit_UserID:
+        type: string
+      Credit_Value:
+        type: integer
+      Credit_TicketIDs:
+        type: array
+        items:
+          type: string
+  
+  Ticket:
+    type: object
+    properties:
+      Ticket_TicketID:
+        type: string
+      Ticket_Status:
+        type: integer
+      Ticket_Title:
+        type: string
+      Ticket_Type:
+        type: integer
+      Ticket_Value:
+        type: integer
+      Ticket_UserID:
+        type: string
+      Ticket_Deadline:
+        type: string
+      Ticket_Comment:
+        type: string
+      Ticket_Policy:
+        type: string
+  

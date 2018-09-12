@@ -71,6 +71,12 @@ type Ticket struct {
 	Policy		string 		`json:"Ticket_Policy"`
 }
 
+type TicketParticipant struct {
+	TicketID 	string		`json:"TicketID"`
+	UserID		string		`json:"UserID"`
+	Status		int			`json:"Status"`
+}
+
 //SmartContract - Chaincode for asset Reading
 type SmartContract struct {
 }
@@ -129,7 +135,16 @@ func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response
 		return rdg.TicketUpdate(stub, args)
 	case "TicketDelete":
 		return rdg.TicketDelete(stub, args[0])
-		
+	
+	case "TicketApply":
+		return rdg.TicketParticipantCreate(stub, args)
+	case "TicketApplyRead":
+		return rdg.TicketParticipantRead(stub, args)
+	case "TicketParticipantRead2":
+		return rdg.TicketParticipantRead2(stub, args)
+	
+	case "history":
+		return rdg.TestGetHistoryTicket(stub, args)
 	default:
 		logger.Error("Received unknown function invocation: ", function)
 	}
@@ -468,10 +483,9 @@ func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID 
 
 func getTicketFromArgs(args string)(ticket Ticket, err error) {
 	if strings.Contains(args, "\"Ticket_TicketID\"") == false	|| 
-	strings.Contains(args, "\"Ticket_Title\"") == false 			|| 
-	strings.Contains(args, "\"Ticket_Value\"") == false 			||
+	strings.Contains(args, "\"Ticket_Title\"") == false			|| 
+	strings.Contains(args, "\"Ticket_Value\"") == false			||
 	strings.Contains(args, "\"Ticket_UserID\"") == false 		||
-	strings.Contains(args, "\"Ticket_Title\"") == false			||
 	strings.Contains(args, "\"Ticket_Title\"") == false {
 		return ticket, errors.New("Unknown field: Input JSON does not comly to schema")
 	}
@@ -599,4 +613,83 @@ func (sc *SmartContract)TicketRead(stub shim.ChaincodeStubInterface, args []stri
 	}
 	logger.Info(" ****** TicketDelete:", ticket)
 	return shim.Success(ticketAsBytes)
+}
+
+func (sc *SmartContract) TestGetHistoryTicket(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	ticketInterator, err := stub.GetHistoryForKey("xxx1")
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	// defer ticketInterator.Close()
+
+	for ticketInterator.HasNext() {
+		queryResponse, err := ticketInterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		logger.Info("------Test----" + queryResponse.String())
+		item, _ := json.Marshal(queryResponse)
+		logger.Info("------Test 1----" + string(item))
+
+	}
+
+
+	return shim.Success(nil)
+}
+
+func (sc *SmartContract) TicketParticipantCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	ticketID := args[0]
+	userID := args[1]
+
+	key, _ := stub.CreateCompositeKey("TicketParticipant", []string{ticketID, userID})
+	logger.Info("------TicketParticipantCreate:" + key)
+
+	ticketParticipant := TicketParticipant{
+		TicketID: ticketID,
+		UserID: userID,
+		Status: 0}
+	ticketParticipantAsByte, _ := json.Marshal(ticketParticipant)
+	stub.PutState(key, ticketParticipantAsByte)
+
+	return shim.Success(nil)
+}
+
+func (sc *SmartContract) TicketParticipantRead(stub shim.ChaincodeStubInterface, args []string) peer.Response{
+	ticketID := args[0]
+	userID := args[1]
+
+	key, _ := stub.CreateCompositeKey("TicketParticipant", []string{ticketID, userID})
+	ticketParticipantAsByte, _ := stub.GetState(key)
+
+	var ticketParticipant TicketParticipant
+	_ = json.Unmarshal(ticketParticipantAsByte, &ticketParticipant)
+
+	return shim.Success(ticketParticipantAsByte)
+}
+
+func (sc *SmartContract) TicketParticipantRead2(stub shim.ChaincodeStubInterface, args []string) peer.Response{
+	ticketID := args[0]
+
+	ticketParticipantInterator, _ := 
+	stub.GetStateByPartialCompositeKey("TicketParticipant", []string{ticketID})
+
+	for ticketParticipantInterator.HasNext() {
+		queryResponse, err := ticketParticipantInterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		logger.Info("------Test----" + queryResponse.String())
+		item, _ := json.Marshal(queryResponse)
+		logger.Info("------Test x----" + string(item))
+
+	}
+	return shim.Success(nil)
+}
+
+func (sc *SmartContract) TicketParticipantUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+
+	return shim.Success(nil)
 }
