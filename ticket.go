@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"bytes"
 	// "reflect"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -381,14 +382,39 @@ func CreditInit(stub shim.ChaincodeStubInterface, userID string, value int) erro
 
 func (rdg *SmartContract) CreditRead(stub shim.ChaincodeStubInterface, UserID string) peer.Response {
 	//to do
-	creditAsByteArray, err := retrieveSingleCredit(stub, "Credit_UerID_"+UserID)
+	creditAsByteArray, err := retrieveSingleCreditAsByteArray(stub, "Credit_UerID_"+UserID)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	return shim.Success(creditAsByteArray)
 }
 
-func retrieveSingleCredit(stub shim.ChaincodeStubInterface, creditID string) ([]byte, error){
+func retrieveSingleCredit(stub shim.ChaincodeStubInterface, creditID string) (Credit, error){
+	var credit Credit
+	var creditAsByteArray []byte
+	var err error
+
+	creditAsByteArray, err = stub.GetState(creditID)
+
+	if err != nil {
+		return credit, errors.New("CreditRead: Error credit read participant with ID: " + creditID)
+	}
+	// else if creditAsBytes == nil {
+    //  logger.Error("CreditRead:  Corrupt reading record ", err.Error())
+    //  return nil, errors.New("CreditRead: Credit does not exist " + creditID)
+    // }
+
+	// For log printing credit Information & check whether the credit does exist
+	err = json.Unmarshal(creditAsByteArray, &credit)
+	if err != nil {
+		return credit, errors.New("CreditRead: Credit does not exist "  + string(creditAsByteArray))
+	}
+	// For log printing credit Information
+
+	return credit, nil
+}
+
+func retrieveSingleCreditAsByteArray(stub shim.ChaincodeStubInterface, creditID string) ([]byte, error){
 	var credit Credit
 	var creditAsByteArray []byte
 	var err error
@@ -679,6 +705,10 @@ func (sc *SmartContract) OrderRead2(stub shim.ChaincodeStubInterface, args []str
 	orderInterator, _ := 
 	stub.GetStateByPartialCompositeKey("Order", []string{ticketID})
 
+	var buffer bytes.Buffer
+	buffer.WriteString("[")
+	bArrayMemberAlreadyWritten := false
+
 	for orderInterator.HasNext() {
 		queryResponse, err := orderInterator.Next()
 		if err != nil {
@@ -689,8 +719,20 @@ func (sc *SmartContract) OrderRead2(stub shim.ChaincodeStubInterface, args []str
 		item, _ := json.Marshal(queryResponse)
 		logger.Info("------Test x----" + string(item))
 
+		if bArrayMemberAlreadyWritten == true {
+			buffer.WriteString(",")
+		}
+
+		buffer.WriteString("{")
+		buffer.WriteString("\"Record\":")
+		// Record is a JSON object, so we write as-is
+		buffer.WriteString(string(queryResponse.Value))
+		buffer.WriteString("}")
+
 	}
-	return shim.Success(nil)
+	buffer.WriteString("]")
+	
+	return shim.Success(buffer.Bytes())
 }
 
 func OrderSaving(stub shim.ChaincodeStubInterface, order Order) ([]byte, error) {
@@ -709,6 +751,40 @@ func OrderSaving(stub shim.ChaincodeStubInterface, order Order) ([]byte, error) 
 	return bytes, nil
 }
 
+func OrderBlukUpdate(stub shim.ChaincodeStubInterface, ticketID interface{}, userID_array []interface{}, status int) (bool, error) {
+	for _, userID := range userID_array {
+		order := Order{
+			TicketID: ticketID.(string),
+			UserID: userID.(string),
+			Status: status}
+		if status != 0{
+			key, _ := stub.CreateCompositeKey("Order", []string{ticketID.(string), userID.(string)})
+			orderAsByte, _ := stub.GetState(key)
+
+			var order Order
+			_ = json.Unmarshal(orderAsByte, &order)
+
+			if order.Status != status - 1{
+				OrderSaving(stub, order)
+			}
+		} else {
+			OrderSaving(stub, order)
+		}
+	}
+	return true, nil
+}
+
+func award(stub shim.ChaincodeStubInterface, ticketID string, userID_array []interface{}, value int)(bool, error){
+	for _, userID := range userID_array {
+		credit, _ := retrieveSingleCredit(stub, "Credit_UerID_"+userID.(string))
+		credit.Value += value
+		credit.TicketIDs = append(credit.TicketIDs, ticketID)
+		creditAsByteArray, _ := json.Marshal(credit)
+		stub.PutState("Credit_UerID_"+credit.UserID, creditAsByteArray)
+	}
+	return true, nil
+}
+
 func (sc *SmartContract) OrderUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 	var raw map[string]interface{}
 
@@ -717,57 +793,58 @@ func (sc *SmartContract) OrderUpdate(stub shim.ChaincodeStubInterface, args []st
 		return shim.Error(err.Error())
 	}
 
+	var data []interface{}
+	var status = 0
 	ticketID := raw["TicketID"]
 	confirm := raw["Confirm"]
-	reject := raw["Reject"]
+	close := raw["Close"]
 	done := raw["Done"]
+	awarded := raw["Award"]
 
 	if ticketID == nil {
 		return shim.Error("OrderUpdate: TicketID is needed")
 	}
-	if (confirm == nil && reject == nil) {
-		return shim.Error("OrderUpdate: At least one user id is needed.")
-	}
-
-	if confirm == nil {
-		logger.Info("OrderUpdate: No confirm Objects")
-	} else {
-		confirmed_data := confirm.([]interface{})
-		for _, userID := range confirmed_data {
-			order := Order{
-				TicketID: ticketID.(string),
-				UserID: userID.(string),
-				Status: 1}
-			OrderSaving(stub, order)
+	if close != nil {
+		_, err = OrderBlukUpdate(stub, ticketID, close.([]interface{}), status)
+		if err != nil {
+			return shim.Error("OrderUpdate:" + err.Error())
 		}
 	}
 
-	if reject == nil {
-		logger.Info("OrderUpdate: No Reject Objects")
-	} else {
-		rejected_data := reject.([]interface{})
-		for _, userID := range rejected_data {
-			order := Order{
-				TicketID: ticketID.(string),
-				UserID: userID.(string),
-				Status: -1}
-			OrderSaving(stub, order)
+	if confirm != nil {
+		data = confirm.([]interface{})
+		status = 2
+		_, err = OrderBlukUpdate(stub, ticketID, data, status)
+	} else if done != nil {
+		data = done.([]interface{})
+		status = 3
+		_, err = OrderBlukUpdate(stub, ticketID, data, status)
+	} else if awarded != nil {
+		data = awarded.([]interface{})
+		status = 4
+		_, err = OrderBlukUpdate(stub, ticketID, data, status)
+
+		// Award user
+		var ticket Ticket
+		ticketAsBytes, err := stub.GetState(args[0])
+		if err != nil {
+			return shim.Error(err.Error())
 		}
+
+		err = json.Unmarshal(ticketAsBytes, &ticket)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		award(stub, ticket.TicketID, data, ticket.Value)
 	}
 
-	if done == nil {
-		logger.Info("OrderUpdate: No Done Objects")
-	} else {
-		data := reject.([]interface{})
-		for _, userID := range data {
-			order := Order{
-				TicketID: ticketID.(string),
-				UserID: userID.(string),
-				Status: 2}
-			OrderSaving(stub, order)
-		}
+	if err != nil {
+		return shim.Error("OrderUpdate:" + err.Error())
 	}
-	
+
+	// check ticket status
+	// to do 
+
 	return shim.Success(nil)
 }
 
