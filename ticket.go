@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	// "reflect"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	"github.com/hyperledger/fabric/protos/peer"
@@ -71,7 +72,7 @@ type Ticket struct {
 	Policy		string 		`json:"Ticket_Policy"`
 }
 
-type TicketParticipant struct {
+type Order struct {
 	TicketID 	string		`json:"TicketID"`
 	UserID		string		`json:"UserID"`
 	Status		int			`json:"Status"`
@@ -136,13 +137,16 @@ func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response
 	case "TicketDelete":
 		return rdg.TicketDelete(stub, args[0])
 	
-	case "TicketApply":
-		return rdg.TicketParticipantCreate(stub, args)
-	case "TicketApplyRead":
-		return rdg.TicketParticipantRead(stub, args)
-	case "TicketParticipantRead2":
-		return rdg.TicketParticipantRead2(stub, args)
-	
+	case "OrderApply":
+		return rdg.OrderCreate(stub, args)
+	case "OrderRead":
+		return rdg.OrderRead(stub, args)
+	case "OrderRead2":
+		return rdg.OrderRead2(stub, args)
+	case "OrderUpdate":
+		return rdg.OrderUpdate(stub, args)
+
+
 	case "history":
 		return rdg.TestGetHistoryTicket(stub, args)
 	default:
@@ -483,8 +487,8 @@ func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID 
 
 func getTicketFromArgs(args string)(ticket Ticket, err error) {
 	if strings.Contains(args, "\"Ticket_TicketID\"") == false	|| 
-	strings.Contains(args, "\"Ticket_Title\"") == false			|| 
-	strings.Contains(args, "\"Ticket_Value\"") == false			||
+	strings.Contains(args, "\"Ticket_Title\"") == false 			|| 
+	strings.Contains(args, "\"Ticket_Value\"") == false 			||
 	strings.Contains(args, "\"Ticket_UserID\"") == false 		||
 	strings.Contains(args, "\"Ticket_Title\"") == false {
 		return ticket, errors.New("Unknown field: Input JSON does not comly to schema")
@@ -639,44 +643,44 @@ func (sc *SmartContract) TestGetHistoryTicket(stub shim.ChaincodeStubInterface, 
 	return shim.Success(nil)
 }
 
-func (sc *SmartContract) TicketParticipantCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+func (sc *SmartContract) OrderCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 	ticketID := args[0]
 	userID := args[1]
 
-	key, _ := stub.CreateCompositeKey("TicketParticipant", []string{ticketID, userID})
-	logger.Info("------TicketParticipantCreate:" + key)
+	key, _ := stub.CreateCompositeKey("Order", []string{ticketID, userID})
+	logger.Info("------OrderCreate:" + key)
 
-	ticketParticipant := TicketParticipant{
+	order := Order{
 		TicketID: ticketID,
 		UserID: userID,
 		Status: 0}
-	ticketParticipantAsByte, _ := json.Marshal(ticketParticipant)
-	stub.PutState(key, ticketParticipantAsByte)
+	orderAsByte, _ := json.Marshal(order)
+	stub.PutState(key, orderAsByte)
 
 	return shim.Success(nil)
 }
 
-func (sc *SmartContract) TicketParticipantRead(stub shim.ChaincodeStubInterface, args []string) peer.Response{
+func (sc *SmartContract) OrderRead(stub shim.ChaincodeStubInterface, args []string) peer.Response{
 	ticketID := args[0]
 	userID := args[1]
 
-	key, _ := stub.CreateCompositeKey("TicketParticipant", []string{ticketID, userID})
-	ticketParticipantAsByte, _ := stub.GetState(key)
+	key, _ := stub.CreateCompositeKey("Order", []string{ticketID, userID})
+	orderAsByte, _ := stub.GetState(key)
 
-	var ticketParticipant TicketParticipant
-	_ = json.Unmarshal(ticketParticipantAsByte, &ticketParticipant)
+	var order Order
+	_ = json.Unmarshal(orderAsByte, &order)
 
-	return shim.Success(ticketParticipantAsByte)
+	return shim.Success(orderAsByte)
 }
 
-func (sc *SmartContract) TicketParticipantRead2(stub shim.ChaincodeStubInterface, args []string) peer.Response{
+func (sc *SmartContract) OrderRead2(stub shim.ChaincodeStubInterface, args []string) peer.Response{
 	ticketID := args[0]
 
-	ticketParticipantInterator, _ := 
-	stub.GetStateByPartialCompositeKey("TicketParticipant", []string{ticketID})
+	orderInterator, _ := 
+	stub.GetStateByPartialCompositeKey("Order", []string{ticketID})
 
-	for ticketParticipantInterator.HasNext() {
-		queryResponse, err := ticketParticipantInterator.Next()
+	for orderInterator.HasNext() {
+		queryResponse, err := orderInterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -689,7 +693,81 @@ func (sc *SmartContract) TicketParticipantRead2(stub shim.ChaincodeStubInterface
 	return shim.Success(nil)
 }
 
-func (sc *SmartContract) TicketParticipantUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+func OrderSaving(stub shim.ChaincodeStubInterface, order Order) ([]byte, error) {
+	bytes, err := json.Marshal(order)
+	if err != nil {
+		return nil, err
+	}
+	key, _ := stub.CreateCompositeKey(
+		"Order",
+		[]string{order.TicketID, order.UserID})
 
+	err = stub.PutState(key, bytes)
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
+func (sc *SmartContract) OrderUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	var raw map[string]interface{}
+
+	err := json.Unmarshal([]byte(args[0]), &raw)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
+	ticketID := raw["TicketID"]
+	confirm := raw["Confirm"]
+	reject := raw["Reject"]
+	done := raw["Done"]
+
+	if ticketID == nil {
+		return shim.Error("OrderUpdate: TicketID is needed")
+	}
+	if (confirm == nil && reject == nil) {
+		return shim.Error("OrderUpdate: At least one user id is needed.")
+	}
+
+	if confirm == nil {
+		logger.Info("OrderUpdate: No confirm Objects")
+	} else {
+		confirmed_data := confirm.([]interface{})
+		for _, userID := range confirmed_data {
+			order := Order{
+				TicketID: ticketID.(string),
+				UserID: userID.(string),
+				Status: 1}
+			OrderSaving(stub, order)
+		}
+	}
+
+	if reject == nil {
+		logger.Info("OrderUpdate: No Reject Objects")
+	} else {
+		rejected_data := reject.([]interface{})
+		for _, userID := range rejected_data {
+			order := Order{
+				TicketID: ticketID.(string),
+				UserID: userID.(string),
+				Status: -1}
+			OrderSaving(stub, order)
+		}
+	}
+
+	if done == nil {
+		logger.Info("OrderUpdate: No Done Objects")
+	} else {
+		data := reject.([]interface{})
+		for _, userID := range data {
+			order := Order{
+				TicketID: ticketID.(string),
+				UserID: userID.(string),
+				Status: 2}
+			OrderSaving(stub, order)
+		}
+	}
+	
 	return shim.Success(nil)
 }
+
