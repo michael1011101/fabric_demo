@@ -683,7 +683,7 @@ func (sc *SmartContract) OrderCreate(stub shim.ChaincodeStubInterface, args []st
 	order := Order{
 		TicketID: ticketID,
 		UserID: userID,
-		Status: 0}
+		Status: 1}
 	orderAsByte, _ := json.Marshal(order)
 	stub.PutState(key, orderAsByte)
 
@@ -767,26 +767,46 @@ func OrderBlukUpdate(stub shim.ChaincodeStubInterface, ticketID interface{}, use
 
 			var order Order
 			_ = json.Unmarshal(orderAsByte, &order)
-
-			if order.Status != status - 1{
+			
+			if order.Status == status - 1{
+				order.Status = status
 				OrderSaving(stub, order)
 			}
 		} else {
+			order.Status = status
 			OrderSaving(stub, order)
 		}
 	}
 	return true, nil
 }
 
+func orderStatueEqual(stub shim.ChaincodeStubInterface, ticketID string, userID string, status int) bool {
+	key, _ := stub.CreateCompositeKey("Order", []string{ticketID, userID})
+	orderAsByte, _ := stub.GetState(key)
+
+	var order Order
+	_ = json.Unmarshal(orderAsByte, &order)
+
+	if order.Status == status{
+		return true
+	} else {
+		return false
+	}
+}
+
 func award(stub shim.ChaincodeStubInterface, ticketID string, userID_array []interface{}, value int)(bool, error){
 	for _, userID := range userID_array {
 		logger.Info("-----xxx---------", "Credit_UerID_"+userID.(string))
 		credit, _ := retrieveSingleCredit(stub, "Credit_UerID_"+userID.(string))
-		credit.Value += value
-		credit.TicketIDs = append(credit.TicketIDs, ticketID)
-		logger.Info("-----xxx---------", credit)
-		creditAsByteArray, _ := json.Marshal(credit)
-		stub.PutState("Credit_UerID_"+credit.UserID, creditAsByteArray)
+		// if order is done and ticketID not in credit.TicketIDs
+		if (orderStatueEqual(stub, ticketID, userID.(string), 4) && 
+			!Is_Inarray(credit.TicketIDs, ticketID)) {
+			credit.Value += value
+			credit.TicketIDs = append(credit.TicketIDs, ticketID)
+			logger.Info("-----xxx---------", credit)
+			creditAsByteArray, _ := json.Marshal(credit)
+			stub.PutState("Credit_UerID_"+credit.UserID, creditAsByteArray)
+		}
 	}
 	return true, nil
 }
