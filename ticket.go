@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -419,6 +420,7 @@ func retrieveSingleCreditAsByteArray(stub shim.ChaincodeStubInterface, creditID 
 	var creditAsByteArray []byte
 	var err error
 
+	logger.Info("-----retrieveSingleCreditAsByteArray :creditID---------", creditID)
 	creditAsByteArray, err = stub.GetState(creditID)
 
 	if err != nil {
@@ -435,6 +437,8 @@ func retrieveSingleCreditAsByteArray(stub shim.ChaincodeStubInterface, creditID 
 		return nil, errors.New("CreditRead: Credit does not exist "  + string(creditAsByteArray))
 	}
 	// For log printing credit Information
+
+	logger.Info("-----retrieveSingleCreditAsByteArray---------", credit)
 
 	return creditAsByteArray, nil
 }
@@ -776,9 +780,11 @@ func OrderBlukUpdate(stub shim.ChaincodeStubInterface, ticketID interface{}, use
 
 func award(stub shim.ChaincodeStubInterface, ticketID string, userID_array []interface{}, value int)(bool, error){
 	for _, userID := range userID_array {
+		logger.Info("-----xxx---------", "Credit_UerID_"+userID.(string))
 		credit, _ := retrieveSingleCredit(stub, "Credit_UerID_"+userID.(string))
 		credit.Value += value
 		credit.TicketIDs = append(credit.TicketIDs, ticketID)
+		logger.Info("-----xxx---------", credit)
 		creditAsByteArray, _ := json.Marshal(credit)
 		stub.PutState("Credit_UerID_"+credit.UserID, creditAsByteArray)
 	}
@@ -823,10 +829,11 @@ func (sc *SmartContract) OrderUpdate(stub shim.ChaincodeStubInterface, args []st
 		data = awarded.([]interface{})
 		status = 4
 		_, err = OrderBlukUpdate(stub, ticketID, data, status)
-
+		
+		logger.Info("-----1---------")
 		// Award user
 		var ticket Ticket
-		ticketAsBytes, err := stub.GetState(args[0])
+		ticketAsBytes, err := stub.GetState(ticketID.(string))
 		if err != nil {
 			return shim.Error(err.Error())
 		}
