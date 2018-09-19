@@ -18,6 +18,7 @@ tags:
   description : "Participant api"
 - name: "Credit"
 - name: "Ticket"
+- name: "Order"
       
 schemes:
 - "http"
@@ -108,28 +109,6 @@ paths:
           description: Failed
           
   /Credit:
-    post:
-      tags: 
-      - "Credit"
-      operationId: CreditCreate
-      summary: Create a Credit
-      consumes:
-      - application/json
-      parameters:
-      - in: body
-        name: body
-        description: New Credit
-        required: true
-        schema:
-          $ref: '#/definitions/Credit'
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed
-    
     put:
       tags:
       - "Credit"
@@ -151,7 +130,26 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-    
+   
+  /Credit/{userid}/{value}: 
+    post:
+      tags: 
+      - "Credit"
+      operationId: CreditCreate
+      summary: Create a Credit
+      consumes:
+      - application/json
+      parameters:
+      - $ref: '#/parameters/userid'
+      - $ref: '#/parameters/value'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+  /Credit/{userid}:
     get:
       tags:
       - "Credit"
@@ -187,32 +185,10 @@ paths:
           description: Failed
     
   /Ticket:
-    post:
-      tags: 
-      - "Ticket"
-      operationId: TicketCreate
-      summary: Create a Ticket
-      consumes:
-      - application/json
-      parameters:
-      - in: body
-        name: body
-        description: New Ticket
-        required: true
-        schema:
-          $ref: '#/definitions/Ticket'
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed
-    
     put:
       tags:
       - "Ticket"
-      operationId: TicketUpdate
+      operationId: TicketCreate
       summary: Update Ticket
       consumes:
       - application/json
@@ -231,30 +207,54 @@ paths:
         500:
           description: Failed
 
-    get:
-      tags:
-      - "Ticket"
-      operationId: TicketRead
-      summary: Read Ticket
-      parameters:
-      - $ref: '#/parameters/id'
-      produces:
-      - "application/json"
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed
-    
+  /Ticket/{ticketid}: 
     delete:
       tags:
       - "Ticket"
       operationId: TicketDelete
       summary: Read Ticket
       parameters:
-      - $ref: '#/parameters/id'
+      - $ref: '#/parameters/ticketid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    get:
+      tags:
+        - "Ticket"
+      operationId: TicketRead
+      summary: User apply ticket
+      parameters:
+      - $ref: '#/parameters/ticketid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed 
+
+  /Ticket, TIcket/{ticketid}:
+    post:
+      tags:
+        - "Ticket"
+      operationId: TicketUpdate
+      summary: User apply ticket
+      parameters:
+      - $ref: '#/parameters/ticketid'
+      - in: body
+        name: body
+        description: New Ticket
+        required: true
+        schema:
+          $ref: '#/definitions/Ticket'
       produces:
       - "application/json"
       responses:
@@ -265,17 +265,18 @@ paths:
         500:
           description: Failed
     
-  /Ticket/{userid}:
-    post:
-      tags:
-        - "Ticket"
-      operationId: TicketApply
-      summary: User apply ticket
+
+  /Order/{ticketid}/{userid}: 
+    put:
+      tags: 
+      - "Order"
+      operationId: OrderCreate
+      summary: Create a Order
+      consumes:
+      - application/json
       parameters:
       - $ref: '#/parameters/ticketid'
       - $ref: '#/parameters/userid'
-      produces:
-      - "application/json"
       responses:
         200:
           description: Reading Written
@@ -285,15 +286,15 @@ paths:
           description: Failed
     
     get:
-      tags:
-        - "Ticket"
-      operationId: TicketApplyRead
-      summary: User apply ticket
+      tags: 
+      - "Order"
+      operationId: OrderRead
+      summary: Read a Order
+      consumes:
+      - application/json
       parameters:
       - $ref: '#/parameters/ticketid'
       - $ref: '#/parameters/userid'
-      produces:
-      - "application/json"
       responses:
         200:
           description: Reading Written
@@ -301,7 +302,6 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-
 
 parameters:
   id:
@@ -325,6 +325,13 @@ parameters:
     description: ID of the Ticket
     required: true
     type: string
+    
+  value:
+    name: value
+    in: path
+    description: ID of the Ticket
+    required: true
+    type: integer
 
 definitions:
   Participant:
@@ -374,4 +381,15 @@ definitions:
         type: string
       Ticket_Policy:
         type: string
+  
+  Order:
+    type: object
+    properties:
+      TicketID:
+        type: string
+      UserID:
+        type: string
+      Status:
+        type: integer
+
   
