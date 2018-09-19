@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -125,8 +124,8 @@ func (rdg *SmartContract) Invoke(stub shim.ChaincodeStubInterface) peer.Response
 		return rdg.CreditCreate(stub, args)
 	case "CreditRead":
 		return rdg.CreditRead(stub, args[0])
-	case "CreditUpdate":
-		return rdg.CreditUpdate(stub, args)
+	case "CreditAdd":
+		return rdg.CreditAdd(stub, args)
 	case "CreditDelete":
 		return rdg.CreditDelete(stub, args[0])
 
@@ -344,10 +343,12 @@ func (rdg *SmartContract) updateParticipant(stub shim.ChaincodeStubInterface, ar
 func (rdg *SmartContract) CreditCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 
 	// ==== Check whether the participant already exsites. ====
+	// todo 
+	// checke wether credit already exsites.
 	record, err := stub.GetState("Credit_UerID_"+args[0])
 
 	if record != nil {
-		return shim.Error("This participant's:%s credit has already existed." + args[0])
+		return shim.Error("This Credit" + args[0] + " credit has already existed.")
 	}
 
 	userID := args[0]
@@ -444,20 +445,24 @@ func retrieveSingleCreditAsByteArray(stub shim.ChaincodeStubInterface, creditID 
 }
 
 
-func (rdg *SmartContract) CreditUpdate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+func (rdg *SmartContract) CreditAdd(stub shim.ChaincodeStubInterface, args []string) peer.Response {
 	var credit Credit
-	// ==== Check whether the number of args is 3 ====
-	if len(args) != 3 {
-		return shim.Error("CreditUpdate: Incorrect number of arguments, Expecting 3")
+	var raw map[string]interface{}
+
+	err := json.Unmarshal([]byte(args[0]), &raw)
+	if err != nil {
+		return shim.Error(err.Error())
 	}
 
 	// ==== Assign value to variable ====
-	userID := args[0]
-	value, err := strconv.Atoi(args[1])
-	if err != nil {
-		return shim.Error("CreditUpdate: Incorrect value :" + args[1])
-	}
-	ticketID := args[2]
+	userID := raw["userID"].(string)
+	logger.Info("*****CreditUpdate*******", userID)
+
+	value := int(raw["value"].(float64))
+	logger.Info("*****CreditUpdate*******", value)
+
+	ticketID := raw["ticketID"].(string)
+	logger.Info("*****CreditUpdate*******", ticketID)
 	
 	// === Check whether the credit already exist. ====
 	creditAsByteArray, err := stub.GetState("Credit_UerID_"+userID)
@@ -473,10 +478,13 @@ func (rdg *SmartContract) CreditUpdate(stub shim.ChaincodeStubInterface, args []
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
-	// === check whether the ticket has been add ===
-	if ok := Is_Inarray(credit.TicketIDs, ticketID); ok {
-		return shim.Error("CreditUpdate: This ticket has been existed.")
+	
+	// === if ticket is a constan string which only represent add constant credit ===
+	if ticketID != "creditADD" {
+		// === check whether the ticket has been add ===
+		if ok := Is_Inarray(credit.TicketIDs, ticketID); ok {
+			return shim.Error("CreditUpdate: This ticket has been existed.")
+		}
 	}
 
 	credit.Value += value
@@ -516,11 +524,10 @@ func (rdg *SmartContract) CreditDelete(stub shim.ChaincodeStubInterface, userID 
 }
 
 func getTicketFromArgs(args string)(ticket Ticket, err error) {
-	if strings.Contains(args, "\"Ticket_TicketID\"") == false	|| 
-	strings.Contains(args, "\"Ticket_Title\"") == false 			|| 
-	strings.Contains(args, "\"Ticket_Value\"") == false 			||
+	if strings.Contains(args, "\"Ticket_Title\"") == false 		|| 
+	strings.Contains(args, "\"Ticket_Value\"") == false 		||
 	strings.Contains(args, "\"Ticket_UserID\"") == false 		||
-	strings.Contains(args, "\"Ticket_Title\"") == false {
+	strings.Contains(args, "\"Ticket_Type\"") == false {
 		return ticket, errors.New("Unknown field: Input JSON does not comly to schema")
 	}
 	
@@ -674,6 +681,9 @@ func (sc *SmartContract) TestGetHistoryTicket(stub shim.ChaincodeStubInterface, 
 }
 
 func (sc *SmartContract) OrderCreate(stub shim.ChaincodeStubInterface, args []string) peer.Response {
+	// json ticketID & userID
+	// 
+	
 	ticketID := args[0]
 	userID := args[1]
 
@@ -869,9 +879,11 @@ func (sc *SmartContract) OrderUpdate(stub shim.ChaincodeStubInterface, args []st
 		return shim.Error("OrderUpdate:" + err.Error())
 	}
 
-	// check ticket status
-	// to do 
+	// update ticket status
 
+	// ticket id & ticket object list
+
+	// to do 
 	return shim.Success(nil)
 }
 
