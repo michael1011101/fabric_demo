@@ -104,6 +104,10 @@ func (rdg *SmartContract) Init(stub shim.ChaincodeStubInterface) peer.Response {
 	var readingIDIndex ReadingIDIndex
 	bytes, _ := json.Marshal(readingIDIndex)
 	stub.PutState("readingIDIndex", bytes)
+
+	TICKETIDAsBytes, _ := json.Marshal(TICKETID)
+	stub.PutState("TICKETID", TICKETIDAsBytes)
+
 	return shim.Success(nil)
 }
 
@@ -566,6 +570,9 @@ func (sc *SmartContract)TicketCreate(stub shim.ChaincodeStubInterface, args []st
 	// 	DeadLine: time.Now()}
 	
 	ticket, err := getTicketFromArgs(args[0])
+	
+	TICKETIDAsBytes, _ := stub.GetState("TICKETID")
+	TICKETID, _ = strconv.Atoi(string(TICKETIDAsBytes))
 	TICKETID++
 	ticket.TicketID = strconv.Itoa(TICKETID)
 	if err != nil {
@@ -583,6 +590,9 @@ func (sc *SmartContract)TicketCreate(stub shim.ChaincodeStubInterface, args []st
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
+	TICKETIDAsBytes, _ = json.Marshal(TICKETID)
+	stub.PutState("TICKETID", TICKETIDAsBytes)
 	return shim.Success(ticketAsBytes)
 }
 
@@ -751,11 +761,9 @@ func (sc *SmartContract) OrderRead2(stub shim.ChaincodeStubInterface, args []str
 			buffer.WriteString(",")
 		}
 
-		buffer.WriteString("{")
-		buffer.WriteString("\"Record\":")
 		// Record is a JSON object, so we write as-is
 		buffer.WriteString(string(queryResponse.Value))
-		buffer.WriteString("}")
+		bArrayMemberAlreadyWritten = true
 
 	}
 	buffer.WriteString("]")
@@ -894,10 +902,42 @@ func (sc *SmartContract) OrderUpdate(stub shim.ChaincodeStubInterface, args []st
 	}
 
 	// update ticket status
-
+	AutoUpdateTicketStatus(stub, ticketID.(string))
 	// ticket id & ticket object list
 
 	// to do 
 	return shim.Success(nil)
+}
+
+func AutoUpdateTicketStatus(stub shim.ChaincodeStubInterface, ticketID string) []byte{
+
+	var maxStatus = 0
+	var order Order
+	var ticket Ticket
+	logger.Info("AutoUpdateTicketStatus ticketID:", ticketID)
+	// Get all order to get max status
+	orderInterator, _ := 
+	stub.GetStateByPartialCompositeKey("Order", []string{ticketID})
+
+	for orderInterator.HasNext() {
+		queryResponse, _ := orderInterator.Next()
+
+		json.Unmarshal(queryResponse.Value, &order)
+
+		if maxStatus < order.Status{
+			maxStatus = order.Status
+		}
+		logger.Info("AutoUpdateTicketStatus order :", order)
+	}
+	
+	ticketAsBytes, _  := stub.GetState(ticketID)
+	json.Unmarshal(ticketAsBytes, &ticket)
+
+	ticket.Status = maxStatus
+	logger.Info("AutoUpdateTicketStatus:", maxStatus)
+
+	ticketAsBytes, _ = json.Marshal(ticket)
+	stub.PutState(ticket.TicketID, ticketAsBytes)
+	return ticketAsBytes
 }
 
