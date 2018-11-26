@@ -17,6 +17,7 @@ tags:
 - name: "Participant"
   description : "Participant api"
 - name: "Credit"
+- name: "LoB"
 - name: "Ticket"
 - name: "Order"
       
@@ -26,34 +27,38 @@ schemes:
 paths:
  
   /Participant:
-    # get:
-    #   operationId: readAllReadings
-    #   summary: Read all (existing) Odometer Readings
-    #   produces:
-    #   - application/json
-    #   responses:
-    #     200:
-    #       description: OK
-    #     500:
-    #       description: Failed
+    get:
+      tags: 
+      - "Participant"
+      operationId: readAllParticipant
+      summary: Read all (existing) Participants
+      produces:
+      - application/json
+      responses:
+        200:
+          description: OK
+        500:
+          description: Failed
 
     post:
       tags: 
       - "Participant"
       operationId: addParticipant
-      summary: Adds a new Odometer Reading for a new participant
+      summary: Add a new Participant
       consumes:
       - application/json
       parameters:
       - in: body
-        name: newReading
-        description: New Odometer Reading for new Vehicle
+        name: body
+        description: New Participant
         required: true
         schema:
           $ref: '#/definitions/Participant'
       responses:
         200:
           description: Reading Written
+        405:
+          description: Invalid Input
         500:
           description: Failed
  
@@ -61,19 +66,21 @@ paths:
       tags: 
       - "Participant"
       operationId: updateParticipant
-      summary: Updates existing participant with a new Odometer participant
+      summary: Update a existing Participant
       consumes:
       - application/json
       parameters:
       - in: body
-        name: updateReading
-        description: New Odometer Reading for existing vehicle
+        name: body
+        description: Existing Participant
         required: true
         schema:
           $ref: '#/definitions/Participant'
       responses:
         200:
           description: Reading Written
+        405:
+          description: Invalid Input
         500:
           description: Failed
           
@@ -82,7 +89,7 @@ paths:
       tags: 
       - "Participant"
       operationId: deleteParticipant
-      summary: Remove a (existing) Odometer Readings
+      summary: Remove a existing Participant
       parameters:
       - $ref: '#/parameters/id'
       produces:
@@ -90,6 +97,8 @@ paths:
       responses:
         200:
           description: OK
+        405:
+          description: Invalid Input
         500:
           description: Failed
 
@@ -97,9 +106,70 @@ paths:
       tags: 
       - "Participant"
       operationId: readParticipant
-      summary: Read (existing) Odometer Reading by Reading ID
+      summary: Read a Participant
       parameters:
       - $ref: '#/parameters/id'
+      produces:
+      - application/json
+      responses:
+        200:
+          description: OK
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+  
+  # ===========  Decide not to public this API ===========
+  # /Credit/{userid}/{value}: 
+  #   post:
+  #     tags: 
+  #     - "Credit"
+  #     operationId: CreditCreate
+  #     summary: Create a Credit
+  #     consumes:
+  #     - application/json
+  #     parameters:
+  #     - $ref: '#/parameters/userid'
+  #     - $ref: '#/parameters/value'
+  #     responses:
+  #       200:
+  #         description: Reading Written
+  #       405:
+  #         description: Invalid Input
+  #       500:
+  #         description: Failed
+        
+    #  ===========  CAN NOT WORK ===
+    # /Credit:  
+    # put:
+    #   tags:
+    #   - "Credit"
+    #   operationId: CreditAdd
+    #   summary: Update a Credit
+    #   consumes:
+    #   - application/json
+    #   parameters:
+    #   - in: body
+    #     name: body
+    #     description: New Credit
+    #     required: true
+    #     schema:
+    #       $ref: '#/definitions/Credit'
+    #   responses:
+    #     200:
+    #       description: Reading Written
+    #     405:
+    #       description: Invalid Input
+    #     500:
+    #       description: Failed
+   
+
+  /Credit/:
+    get:      
+      tags:
+      - "Credit"
+      operationId: TopTenCredit
+      summary: list participants having top 10 credits
       produces:
       - application/json
       responses:
@@ -108,53 +178,12 @@ paths:
         500:
           description: Failed
           
-  /Credit:
-    put:
-      tags:
-      - "Credit"
-      operationId: CreditUpdate
-      summary: Update Credit
-      consumes:
-      - application/json
-      parameters:
-      - in: body
-        name: body
-        description: New Credit
-        required: true
-        schema:
-          $ref: '#/definitions/Credit'
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed
-   
-  /Credit/{userid}/{value}: 
-    post:
-      tags: 
-      - "Credit"
-      operationId: CreditCreate
-      summary: Create a Credit
-      consumes:
-      - application/json
-      parameters:
-      - $ref: '#/parameters/userid'
-      - $ref: '#/parameters/value'
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed
   /Credit/{userid}:
     get:
       tags:
       - "Credit"
       operationId: CreditRead
-      summary: Read Credit
+      summary: Read a Credit
       parameters:
       - $ref: '#/parameters/userid'
       produces:
@@ -166,14 +195,30 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-    
-    delete:
+
+
+  /LoB/:
+    get:      
       tags:
-      - "Credit"
-      operationId: CreditDelete
-      summary: Read Credit
+      - "LoB"
+      operationId: LoBReadAll
+      summary: Read credit of every LoB 
+      produces:
+      - application/json
+      responses:
+        200:
+          description: OK
+        500:
+          description: Failed
+
+  /LoB/{lobid}:
+    get:
+      tags:
+      - "LoB"
+      operationId: LoBRead
+      summary: Read LoB info
       parameters:
-      - $ref: '#/parameters/userid'
+      - $ref: '#/parameters/lobid'
       produces:
       - "application/json"
       responses:
@@ -183,13 +228,46 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-    
-  /Ticket:
-    put:
+
+  /Ticket/:
+    get:      
+      tags:
+      - "Ticket"
+      operationId: TicketRead2
+      summary: Read all (existing) Tickets
+      produces:
+      - application/json
+      responses:
+        200:
+          description: OK
+        500:
+          description: Failed
+    post:
       tags:
       - "Ticket"
       operationId: TicketCreate
-      summary: Update Ticket
+      summary: Create a Ticket
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        description: New Ticket
+        required: true
+        schema:
+          $ref: '#/definitions/TicketInit'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    put:
+      tags:
+        - "Ticket"
+      operationId: TicketUpdate
+      summary: User apply ticket
       consumes:
       - application/json
       parameters:
@@ -206,55 +284,31 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-
+          
   /Ticket/{ticketid}: 
-    delete:
-      tags:
-      - "Ticket"
-      operationId: TicketDelete
-      summary: Read Ticket
-      parameters:
-      - $ref: '#/parameters/ticketid'
-      produces:
-      - "application/json"
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed
+    # delete:
+    #   tags:
+    #   - "Ticket"
+    #   operationId: TicketDelete
+    #   summary: Delete a Ticket
+    #   parameters:
+    #   - $ref: '#/parameters/ticketid'
+    #   produces:
+    #   - "application/json"
+    #   responses:
+    #     200:
+    #       description: Reading Written
+    #     405:
+    #       description: Invalid Input
+    #     500:
+    #       description: Failed
     get:
       tags:
         - "Ticket"
       operationId: TicketRead
-      summary: User apply ticket
+      summary: Read a ticket
       parameters:
       - $ref: '#/parameters/ticketid'
-      produces:
-      - "application/json"
-      responses:
-        200:
-          description: Reading Written
-        405:
-          description: Invalid Input
-        500:
-          description: Failed 
-
-  /Ticket, TIcket/{ticketid}:
-    post:
-      tags:
-        - "Ticket"
-      operationId: TicketUpdate
-      summary: User apply ticket
-      parameters:
-      - $ref: '#/parameters/ticketid'
-      - in: body
-        name: body
-        description: New Ticket
-        required: true
-        schema:
-          $ref: '#/definitions/Ticket'
       produces:
       - "application/json"
       responses:
@@ -264,10 +318,25 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-    
-
-  /Order/{ticketid}/{userid}: 
     put:
+      tags:
+        - "Ticket"
+      operationId: AutoUpdateTicketStatus
+      summary: Auto update ticket status 
+      parameters:
+      - $ref: '#/parameters/ticketid'
+      produces:
+      - "application/json"
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed   
+
+  /Order: 
+    post:
       tags: 
       - "Order"
       operationId: OrderCreate
@@ -275,8 +344,33 @@ paths:
       consumes:
       - application/json
       parameters:
-      - $ref: '#/parameters/ticketid'
-      - $ref: '#/parameters/userid'
+      - in: body
+        name: body
+        description: Create a Order
+        required: true
+        schema:
+          $ref: '#/definitions/OrderInit'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
+    put:
+      tags: 
+      - "Order"
+      operationId: OrderUpdate
+      summary: Update a Order
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        description: Update a Order
+        required: true
+        schema:
+          $ref: '#/definitions/OrderUpdate'
       responses:
         200:
           description: Reading Written
@@ -285,6 +379,7 @@ paths:
         500:
           description: Failed
     
+  /Order/{ticketid}/{userid}: 
     get:
       tags: 
       - "Order"
@@ -302,7 +397,23 @@ paths:
           description: Invalid Input
         500:
           description: Failed
-
+  /Order/{ticketid}: 
+    get:
+      tags: 
+      - "Order"
+      operationId: OrderRead2
+      summary: Read all Orders of the ticket
+      consumes:
+      - application/json
+      parameters:
+      - $ref: '#/parameters/ticketid'
+      responses:
+        200:
+          description: Reading Written
+        405:
+          description: Invalid Input
+        500:
+          description: Failed
 parameters:
   id:
     name: id
@@ -319,6 +430,13 @@ parameters:
     required: true
     type: string
 
+  lobid:
+    name: lobid
+    in: path
+    description: ID of the LoB
+    required: true
+    type: string
+  
   ticketid:
     name: ticketid
     in: path
@@ -329,7 +447,7 @@ parameters:
   value:
     name: value
     in: path
-    description: ID of the Ticket
+    description: value of the Ticket
     required: true
     type: integer
 
@@ -345,7 +463,7 @@ definitions:
         type: string
       Participant_IsAdmin:
         type: boolean
-      Participant_LoB:
+      Participant_LoBID:
         type: integer
   
   Credit:
@@ -360,6 +478,18 @@ definitions:
         items:
           type: string
   
+  LoB:
+    type: object
+    properties:
+      LoB_LobID:
+        type: integer
+      LoB_TotalCredit:
+        type: integer
+      LoB_UserIDs:
+        type: array
+        items:
+          type: string
+      
   Ticket:
     type: object
     properties:
@@ -375,8 +505,22 @@ definitions:
         type: integer
       Ticket_UserID:
         type: string
-      Ticket_Deadline:
+      Ticket_Comment:
         type: string
+      Ticket_Policy:
+        type: string
+        
+  TicketInit:
+    type: object
+    properties:
+      Ticket_UserID:
+        type: string
+      Ticket_Value:
+        type: integer
+      Ticket_Title:
+        type: string
+      Ticket_Type:
+        type: integer
       Ticket_Comment:
         type: string
       Ticket_Policy:
@@ -391,5 +535,26 @@ definitions:
         type: string
       Status:
         type: integer
+        
+  OrderInit:
+    type: object
+    properties:
+      TicketID:
+        type: string
+      UserID:
+        type: string
+        
+  OrderUpdate:
+    type: object
+    properties:
+      TicketID:
+        type: string
+      Confirm:
+        type: array
+        items:
+          type: string
+
 
   
+  
+
